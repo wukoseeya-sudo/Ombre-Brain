@@ -349,7 +349,8 @@ async def stackchan_speak(text: str) -> str:
 async def stackchan_emote(expression: str) -> str:
     """切换表情：happy/shy/angry/thinking/sad/surprised/neutral"""
     global _stackchan_cmd
-    _stackchan_cmd = {"action"
+    _stackchan_cmd = {"action": "emote", "expression": expression}
+    return f"✓ 表情：{expression}"
 
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
