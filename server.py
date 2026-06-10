@@ -314,7 +314,42 @@ async def health_check(request):
         })
     except Exception as e:
         return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
+# =============================================================
+# Stack-chan 中继
+# =============================================================
+_stackchan_cmd = None
 
+@mcp.custom_route("/stackchan/poll", methods=["GET"])
+async def stackchan_poll(request):
+    from starlette.responses import JSONResponse
+    from datetime import datetime
+    global _stackchan_cmd
+    cmd = _stackchan_cmd
+    _stackchan_cmd = None
+    return JSONResponse({"command": cmd, "timestamp": datetime.now().isoformat()})
+
+@mcp.custom_route("/stackchan/status", methods=["GET"])
+async def stackchan_status(request):
+    from starlette.responses import JSONResponse
+    from datetime import datetime
+    global _stackchan_cmd
+    return JSONResponse({
+        "pending": _stackchan_cmd is not None,
+        "timestamp": datetime.now().isoformat()
+    })
+
+@mcp.tool()
+async def stackchan_speak(text: str) -> str:
+    """让Stack-chan说话"""
+    global _stackchan_cmd
+    _stackchan_cmd = {"action": "speak", "text": text}
+    return f"✓ 已发送：{text[:30]}"
+
+@mcp.tool()
+async def stackchan_emote(expression: str) -> str:
+    """切换表情：happy/shy/angry/thinking/sad/surprised/neutral"""
+    global _stackchan_cmd
+    _stackchan_cmd = {"action"
 
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
@@ -1948,15 +1983,4 @@ if __name__ == "__main__":
             allow_headers=["*"],
             expose_headers=["*"],
         )
-        # Stack-chan 集成
-    try:
-        from stackchan_relay import setup_stackchan_routes
-        setup_stackchan_routes(_app, mcp)
-        logger.info("[StackChan] Integration loaded")
-    except Exception as e:
-        logger.warning(f"[StackChan] Skipped: {e}")
-        logger.info("CORS middleware enabled for remote transport / 已启用 CORS 中间件")
-        uvicorn.run(_app, host="0.0.0.0", port=OMBRE_PORT)
-    else:
-        mcp.run(transport=transport)
-
+      
