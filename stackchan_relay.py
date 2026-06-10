@@ -334,3 +334,13 @@ if __name__ == "__main__":
     
     print()
     print("✓ 测试通过")
+
+# ============================================================
+# Stack-chan 集成
+# ============================================================
+try:
+    from stackchan_relay import setup_stackchan_routes
+    setup_stackchan_routes(app, server)
+    print("[StackChan] Integration loaded")
+except Exception as e:
+    print(f"[StackChan] Skipped: {e}")
