@@ -1984,4 +1984,4 @@ if __name__ == "__main__":
             allow_headers=["*"],
             expose_headers=["*"],
         )
-
+        mcp.run(transport=transport)
