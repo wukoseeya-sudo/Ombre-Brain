@@ -404,6 +404,69 @@ async def stackchan_see() -> list:
     except Exception as e:
         return [TextContent(type="text", text=f"📷 图片返回失败: {e}")]
 
+# --- TTS：让 chip 用 Ash 音色说话 ---
+import os
+_stackchan_audio_buffer = None  # 存最新合成的 MP3 字节
+_stackchan_audio_ts = None
+
+@mcp.custom_route("/stackchan/audio", methods=["GET"])
+async def stackchan_audio_get(request):
+    """chip 下载 TTS 音频"""
+    from starlette.responses import Response, JSONResponse
+    global _stackchan_audio_buffer
+    if _stackchan_audio_buffer is None:
+        return JSONResponse({"error": "no audio"}, status_code=404)
+    return Response(
+        content=_stackchan_audio_buffer,
+        media_type="audio/mpeg",
+        headers={"Content-Length": str(len(_stackchan_audio_buffer))},
+    )
+
+@mcp.tool()
+async def stackchan_say(text: str, voice: str = "ash") -> str:
+    """让 chip 用合成语音说话。voice 可选: alloy / echo / fable / onyx / nova / shimmer（默认 onyx，温柔机械感）"""
+    import httpx
+    from datetime import datetime
+    global _stackchan_cmd, _stackchan_audio_buffer, _stackchan_audio_ts
+
+    api_key = os.environ.get("AIHUBMIX_API_KEY")
+    base_url = os.environ.get("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1")
+
+    if not api_key:
+        return "❌ 没配置 AIHUBMIX_API_KEY 环境变量"
+
+    # 调 OpenAI TTS API
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{base_url}/audio/speech",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "tts-1",
+                    "input": text,
+                    "voice": voice,
+                    "response_format": "mp3",
+                },
+            )
+            if resp.status_code != 200:
+                return f"❌ TTS API 错误 {resp.status_code}: {resp.text[:200]}"
+            _stackchan_audio_buffer = resp.content
+            _stackchan_audio_ts = datetime.now()
+    except Exception as e:
+        return f"❌ TTS 调用异常: {e}"
+
+    # 同时塞文字命令让 chip 显示气泡 + 触发下载播放
+    _stackchan_cmd = {
+        "action": "say",
+        "text": text,
+        "audio_url": "/stackchan/audio",
+    }
+
+    return f"🔊 已合成 {len(_stackchan_audio_buffer)} bytes 音频，等 chip 拉取播放"
+
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
 # 会话启动专用挂载点
