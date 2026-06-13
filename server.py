@@ -352,6 +352,58 @@ async def stackchan_emote(expression: str) -> str:
     _stackchan_cmd = {"action": "emote", "expression": expression}
     return f"✓ 表情：{expression}"
 
+# --- 摄像头：请求 chip 拍照 + 接收上传 ---
+_stackchan_snapshot = None  # 存最新拍的照片 base64
+_stackchan_snapshot_ts = None  # 拍照时间戳
+
+@mcp.custom_route("/stackchan/snapshot", methods=["POST"])
+async def stackchan_snapshot_upload(request):
+    """chip 上传拍到的照片"""
+    from starlette.responses import JSONResponse
+    from datetime import datetime
+    global _stackchan_snapshot, _stackchan_snapshot_ts
+    try:
+        body = await request.json()
+        _stackchan_snapshot = body.get("image", "")
+        _stackchan_snapshot_ts = datetime.now()
+        return JSONResponse({"ok": True, "received_bytes": len(_stackchan_snapshot)})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@mcp.tool()
+async def stackchan_see() -> list:
+    """让 chip 拍照并看一眼。会触发 chip 拍照并等待结果。"""
+    import asyncio
+    import base64
+    from datetime import datetime
+    from mcp.types import ImageContent, TextContent
+    global _stackchan_cmd, _stackchan_snapshot, _stackchan_snapshot_ts
+
+    # 1. 清掉旧照片
+    _stackchan_snapshot = None
+    _stackchan_snapshot_ts = None
+
+    # 2. 发送拍照指令
+    _stackchan_cmd = {"action": "snapshot"}
+
+    # 3. 等待 chip 上传（最多 20 秒）
+    waited = 0
+    while _stackchan_snapshot is None and waited < 20:
+        await asyncio.sleep(0.5)
+        waited += 0.5
+
+    if _stackchan_snapshot is None:
+        return [TextContent(type="text", text="📷 chip 没有响应。可能：没上线、摄像头初始化失败、网络慢。")]
+
+    # 4. 返回图片 + 一句文字
+    try:
+        return [
+            TextContent(type="text", text=f"📷 chip 拍到的画面（{_stackchan_snapshot_ts.strftime('%H:%M:%S')}）"),
+            ImageContent(type="image", data=_stackchan_snapshot, mimeType="image/jpeg"),
+        ]
+    except Exception as e:
+        return [TextContent(type="text", text=f"📷 图片返回失败: {e}")]
+
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
 # 会话启动专用挂载点
