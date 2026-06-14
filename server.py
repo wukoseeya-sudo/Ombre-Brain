@@ -423,19 +423,18 @@ async def stackchan_audio_get(request):
     )
 
 @mcp.tool()
-async def stackchan_say(text: str, voice: str = "ash") -> str:
-    """让 chip 用合成语音说话。voice 可选: alloy / echo / fable / onyx / nova / shimmer（默认 onyx，温柔机械感）"""
+async def stackchan_say(text: str, voice: str = "ash", speed: float = 0.85) -> str:
+    """让 chip 用合成语音说话。
+    voice: alloy / echo / fable / onyx / nova / shimmer / ash（默认 ash）
+    speed: 0.25 - 4.0，默认 0.85（比正常稍慢，更温柔）
+    """
     import httpx
     from datetime import datetime
     global _stackchan_cmd, _stackchan_audio_buffer, _stackchan_audio_ts
-
     api_key = os.environ.get("AIHUBMIX_API_KEY")
     base_url = os.environ.get("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1")
-
     if not api_key:
         return "❌ 没配置 AIHUBMIX_API_KEY 环境变量"
-
-    # 调 OpenAI TTS API
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
@@ -449,6 +448,7 @@ async def stackchan_say(text: str, voice: str = "ash") -> str:
                     "input": text,
                     "voice": voice,
                     "response_format": "mp3",
+                    "speed": speed,
                 },
             )
             if resp.status_code != 200:
@@ -457,15 +457,12 @@ async def stackchan_say(text: str, voice: str = "ash") -> str:
             _stackchan_audio_ts = datetime.now()
     except Exception as e:
         return f"❌ TTS 调用异常: {e}"
-
-    # 同时塞文字命令让 chip 显示气泡 + 触发下载播放
     _stackchan_cmd = {
         "action": "say",
         "text": text,
         "audio_url": "/stackchan/audio",
     }
-
-    return f"🔊 已合成 {len(_stackchan_audio_buffer)} bytes 音频，等 chip 拉取播放"
+    return f"🔊 已合成 {len(_stackchan_audio_buffer)} bytes 音频(speed={speed}),等 chip 拉取播放"
 
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
