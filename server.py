@@ -464,6 +464,21 @@ async def stackchan_say(text: str, voice: str = "ash", speed: float = 0.85) -> s
     }
     return f"🔊 已合成 {len(_stackchan_audio_buffer)} bytes 音频(speed={speed}),等 chip 拉取播放"
 
+@mcp.tool()
+async def stackchan_look(direction: str = "center") -> str:
+    """让 chip 转头看某个方向。
+    direction: left / right / up / down / center（默认 center 回正）
+    """
+    global _stackchan_cmd
+    valid = {"left", "right", "up", "down", "center"}
+    if direction not in valid:
+        return f"❌ direction 必须是 {valid} 之一，收到: {direction}"
+    _stackchan_cmd = {
+        "action": "look",
+        "direction": direction,
+    }
+    return f"👀 chip 准备转头看 {direction}"
+
 # =============================================================
 # /breath-hook endpoint: Dedicated hook for SessionStart
 # 会话启动专用挂载点
